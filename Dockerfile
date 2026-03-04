@@ -2,9 +2,17 @@ FROM kasmweb/ubuntu-noble-desktop:1.18.0-rolling-weekly
 
 USER root
 
-# Install base utilities + security tools
+# Make sure Ubuntu repos are enabled (Universe is required for many tools like nmap/zaproxy)
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends software-properties-common ca-certificates gnupg && \
+    add-apt-repository -y universe && \
+    add-apt-repository -y multiverse && \
+    apt-get update && \
+    rm -rf /var/lib/apt/lists/*
+
+# Base utilities + XFCE Whisker + security tools + browser compatibility
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
         sudo \
         dnsutils \
         xfce4-whiskermenu-plugin \
@@ -12,19 +20,17 @@ RUN apt-get update && \
         wget \
         vim \
         iputils-ping \
-        ca-certificates \
-        gnupg \
         fonts-liberation \
-        fonts-noto \
+        fonts-noto-core \
         fonts-noto-color-emoji \
         libu2f-udev \
         xclip \
         unzip \
         zip \
         p7zip-full \
-        openjdk-21-jre \
+        default-jre \
         libnss3 \
-        libgtk-3-0 \
+        libgtk-3-0t64 \
         nmap \
         zaproxy \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -38,10 +44,10 @@ RUN mkdir -p /etc/apt/keyrings && \
 
 # Install Microsoft Edge
 RUN apt-get update && \
-    apt-get install -y microsoft-edge-stable && \
+    apt-get install -y --no-install-recommends microsoft-edge-stable && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Burp Suite Community (latest version at build time)
+# Install Burp Suite Community (latest at build time)
 RUN curl -fsSL -L "https://portswigger.net/burp/releases/startdownload?product=community&type=Linux" \
     -o /tmp/burpsuite.sh && \
     chmod +x /tmp/burpsuite.sh && \
@@ -49,7 +55,7 @@ RUN curl -fsSL -L "https://portswigger.net/burp/releases/startdownload?product=c
     ln -sf /opt/burpsuite/BurpSuiteCommunity /usr/local/bin/burpsuite && \
     rm -f /tmp/burpsuite.sh
 
-# Burp desktop launcher
+# Desktop launchers
 RUN printf '%s\n' \
 '[Desktop Entry]' \
 'Name=Burp Suite Community' \
@@ -57,20 +63,16 @@ RUN printf '%s\n' \
 'Type=Application' \
 'Categories=Development;Security;' \
 'Terminal=false' \
-> /usr/share/applications/burpsuite.desktop
-
-# OWASP ZAP desktop launcher
-RUN printf '%s\n' \
+> /usr/share/applications/burpsuite.desktop && \
+printf '%s\n' \
 '[Desktop Entry]' \
 'Name=OWASP ZAP' \
 'Exec=zaproxy' \
 'Type=Application' \
 'Categories=Development;Security;' \
 'Terminal=false' \
-> /usr/share/applications/zaproxy.desktop
-
-# Nmap launcher (opens terminal)
-RUN printf '%s\n' \
+> /usr/share/applications/zaproxy.desktop && \
+printf '%s\n' \
 '[Desktop Entry]' \
 'Name=Nmap Scanner' \
 'Exec=xfce4-terminal -e "nmap --help"' \
@@ -79,7 +81,7 @@ RUN printf '%s\n' \
 'Terminal=false' \
 > /usr/share/applications/nmap.desktop
 
-# Allow passwordless sudo
+# Passwordless sudo for kasm-user
 RUN echo "kasm-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 USER kasm-user
