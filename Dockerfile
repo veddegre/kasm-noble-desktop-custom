@@ -2,7 +2,7 @@ FROM kasmweb/ubuntu-noble-desktop:1.18.0-rolling-weekly
 
 USER root
 
-# --- Ensure standard Ubuntu Noble repos are available (main/restricted/universe/multiverse) ---
+# Ensure Ubuntu repos include universe and multiverse
 RUN set -eux; \
   if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
     sed -i 's/^Components: .*/Components: main restricted universe multiverse/' /etc/apt/sources.list.d/ubuntu.sources || true; \
@@ -16,10 +16,8 @@ RUN set -eux; \
   fi; \
   apt-get update
 
-# --- Base utilities + fonts + clipboard + compression + Java + nmap ---
-# Also includes common Chromium/GUI runtime libs needed by Burp's embedded browser in containers.
+# Base utilities + security tools + browser dependencies
 RUN set -eux; \
-  apt-get update; \
   apt-get install -y --no-install-recommends \
     sudo \
     dnsutils \
@@ -41,8 +39,6 @@ RUN set -eux; \
     p7zip-full \
     default-jre \
     nmap \
-    \
-    # Common Chromium / GUI deps (helps Burp browser + Chromium-based apps in containers)
     libnss3 \
     libgtk-3-0t64 \
     libgbm1 \
@@ -53,12 +49,25 @@ RUN set -eux; \
     libatk-bridge2.0-0t64 \
     libatspi2.0-0t64 \
     libcups2t64 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libxfixes3 \
+    libxcursor1 \
+    libxi6 \
+    libxtst6 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libglib2.0-0 \
+    libxrender1 \
     xdg-utils \
   ; \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
 
-# --- Microsoft Edge (official repo) ---
+# Install Microsoft Edge
 RUN set -eux; \
   mkdir -p /etc/apt/keyrings; \
   curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
@@ -70,14 +79,11 @@ RUN set -eux; \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
 
-# Patch Edge launcher for container environments (sandbox + /dev/shm issues)
-RUN set -eux; \
-  if [ -f /usr/share/applications/microsoft-edge.desktop ]; then \
-    sed -i 's|^Exec=.*|Exec=/usr/bin/microsoft-edge-stable --no-sandbox --disable-dev-shm-usage %U|g' \
-      /usr/share/applications/microsoft-edge.desktop; \
-  fi
+# Patch Edge launcher for container environment
+RUN sed -i 's|Exec=.*|Exec=/usr/bin/microsoft-edge-stable --no-sandbox --disable-dev-shm-usage %U|g' \
+  /usr/share/applications/microsoft-edge.desktop
 
-# --- Burp Suite Community (latest at build time via redirect) ---
+# Install Burp Suite Community (latest at build time)
 RUN set -eux; \
   curl -fsSL -L "https://portswigger.net/burp/releases/startdownload?product=community&type=Linux" \
     -o /tmp/burpsuite.sh; \
@@ -85,55 +91,62 @@ RUN set -eux; \
   /tmp/burpsuite.sh -q -dir /opt/burpsuite; \
   rm -f /tmp/burpsuite.sh
 
-# Burp wrapper to make the embedded browser behave in containers
-# (Passes Chromium-friendly flags; harmless for Burp itself, helps its browser spawn)
-RUN set -eux; \
-  printf '%s\n' \
-    '#!/bin/bash' \
-    'exec /opt/burpsuite/BurpSuiteCommunity --no-sandbox --disable-dev-shm-usage --disable-gpu "$@"' \
-    > /usr/local/bin/burpsuite; \
-  chmod +x /usr/local/bin/burpsuite
+# Wrapper so Burp always runs correctly in containers
+RUN printf '%s\n' \
+  '#!/bin/bash' \
+  'exec /opt/burpsuite/BurpSuiteCommunity --no-sandbox --disable-dev-shm-usage --disable-gpu "$@"' \
+  > /usr/local/bin/burpsuite && chmod +x /usr/local/bin/burpsuite
 
-# --- OWASP ZAP (weekly) from GitHub Releases API (no apt zaproxy dependency) ---
+# Force Burp embedded browser to use container-safe flags
+RUN set -eux; \
+  CHROME_PATH="$(find /opt/burpsuite/burpbrowser -maxdepth 4 -type f -name chrome -perm -111 | head -n 1)"; \
+  test -n "$CHROME_PATH"; \
+  mv "$CHROME_PATH" "${CHROME_PATH}.real"; \
+  printf '%s\n' \
+    '#!/bin/sh' \
+    'DIR="$(cd "$(dirname "$0")" && pwd)"' \
+    'exec "$DIR/chrome.real" --no-sandbox --disable-dev-shm-usage --disable-gpu "$@"' \
+    > "$CHROME_PATH"; \
+  chmod +x "$CHROME_PATH"
+
+# Install OWASP ZAP weekly automatically
 RUN set -eux; \
   ZAP_URL="$(curl -fsSL https://api.github.com/repos/zaproxy/zaproxy/releases \
     | jq -r '[.[] | select(.prerelease==true) | .assets[]? | select(.name | test("^ZAP_WEEKLY_D-.*\\.zip$")) | .browser_download_url][0]')"; \
   test -n "$ZAP_URL" -a "$ZAP_URL" != "null"; \
-  echo "Downloading ZAP from: $ZAP_URL"; \
   mkdir -p /opt/zap; \
   curl -fsSL -L "$ZAP_URL" -o /tmp/zap.zip; \
   unzip -q /tmp/zap.zip -d /opt/zap; \
   rm -f /tmp/zap.zip; \
   ln -sf /opt/zap/ZAP_*/zap.sh /usr/local/bin/zaproxy
 
-# --- Desktop launchers (Burp, ZAP, Nmap) ---
-RUN set -eux; \
-  printf '%s\n' \
-    '[Desktop Entry]' \
-    'Name=Burp Suite Community' \
-    'Exec=/usr/local/bin/burpsuite' \
-    'Type=Application' \
-    'Categories=Development;Security;' \
-    'Terminal=false' \
-    > /usr/share/applications/burpsuite.desktop; \
-  printf '%s\n' \
-    '[Desktop Entry]' \
-    'Name=OWASP ZAP' \
-    'Exec=/usr/local/bin/zaproxy' \
-    'Type=Application' \
-    'Categories=Development;Security;' \
-    'Terminal=false' \
-    > /usr/share/applications/zaproxy.desktop; \
-  printf '%s\n' \
-    '[Desktop Entry]' \
-    'Name=Nmap (Help)' \
-    'Exec=x-terminal-emulator -e nmap --help' \
-    'Type=Application' \
-    'Categories=Security;' \
-    'Terminal=false' \
-    > /usr/share/applications/nmap.desktop
+# Desktop launchers
+RUN printf '%s\n' \
+  '[Desktop Entry]' \
+  'Name=Burp Suite Community' \
+  'Exec=/usr/local/bin/burpsuite' \
+  'Type=Application' \
+  'Categories=Development;Security;' \
+  'Terminal=false' \
+  > /usr/share/applications/burpsuite.desktop && \
+printf '%s\n' \
+  '[Desktop Entry]' \
+  'Name=OWASP ZAP' \
+  'Exec=/usr/local/bin/zaproxy' \
+  'Type=Application' \
+  'Categories=Development;Security;' \
+  'Terminal=false' \
+  > /usr/share/applications/zaproxy.desktop && \
+printf '%s\n' \
+  '[Desktop Entry]' \
+  'Name=Nmap Scanner' \
+  'Exec=x-terminal-emulator -e nmap --help' \
+  'Type=Application' \
+  'Categories=Security;' \
+  'Terminal=false' \
+  > /usr/share/applications/nmap.desktop
 
-# Passwordless sudo for kasm-user
+# Passwordless sudo
 RUN echo "kasm-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 USER kasm-user
