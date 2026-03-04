@@ -2,8 +2,7 @@ FROM kasmweb/ubuntu-noble-desktop:1.18.0-rolling-weekly
 
 USER root
 
-# --- APT repo hardening (make sure universe/multiverse exist) ---
-# Some base images ship with minimal/modified sources; this forces standard Noble repos.
+# --- Ensure standard Ubuntu Noble repos are available (main/restricted/universe/multiverse) ---
 RUN set -eux; \
   if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
     sed -i 's/^Components: .*/Components: main restricted universe multiverse/' /etc/apt/sources.list.d/ubuntu.sources || true; \
@@ -17,7 +16,8 @@ RUN set -eux; \
   fi; \
   apt-get update
 
-# --- Base utilities + XFCE Whisker + browser compat + security basics ---
+# --- Base utilities + fonts + clipboard + compression + Java + nmap ---
+# Also includes common Chromium/GUI runtime libs needed by Burp's embedded browser in containers.
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
@@ -40,9 +40,20 @@ RUN set -eux; \
     zip \
     p7zip-full \
     default-jre \
+    nmap \
+    \
+    # Common Chromium / GUI deps (helps Burp browser + Chromium-based apps in containers)
     libnss3 \
     libgtk-3-0t64 \
-    nmap \
+    libgbm1 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxss1 \
+    libasound2t64 \
+    libatk-bridge2.0-0t64 \
+    libatspi2.0-0t64 \
+    libcups2t64 \
+    xdg-utils \
   ; \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
@@ -59,17 +70,31 @@ RUN set -eux; \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
 
+# Patch Edge launcher for container environments (sandbox + /dev/shm issues)
+RUN set -eux; \
+  if [ -f /usr/share/applications/microsoft-edge.desktop ]; then \
+    sed -i 's|^Exec=.*|Exec=/usr/bin/microsoft-edge-stable --no-sandbox --disable-dev-shm-usage %U|g' \
+      /usr/share/applications/microsoft-edge.desktop; \
+  fi
+
 # --- Burp Suite Community (latest at build time via redirect) ---
 RUN set -eux; \
   curl -fsSL -L "https://portswigger.net/burp/releases/startdownload?product=community&type=Linux" \
     -o /tmp/burpsuite.sh; \
   chmod +x /tmp/burpsuite.sh; \
   /tmp/burpsuite.sh -q -dir /opt/burpsuite; \
-  ln -sf /opt/burpsuite/BurpSuiteCommunity /usr/local/bin/burpsuite; \
   rm -f /tmp/burpsuite.sh
 
-# --- OWASP ZAP (download latest weekly from GitHub Releases API) ---
-# This avoids relying on the 'zaproxy' apt package being present/enabled.
+# Burp wrapper to make the embedded browser behave in containers
+# (Passes Chromium-friendly flags; harmless for Burp itself, helps its browser spawn)
+RUN set -eux; \
+  printf '%s\n' \
+    '#!/bin/bash' \
+    'exec /opt/burpsuite/BurpSuiteCommunity --no-sandbox --disable-dev-shm-usage --disable-gpu "$@"' \
+    > /usr/local/bin/burpsuite; \
+  chmod +x /usr/local/bin/burpsuite
+
+# --- OWASP ZAP (weekly) from GitHub Releases API (no apt zaproxy dependency) ---
 RUN set -eux; \
   ZAP_URL="$(curl -fsSL https://api.github.com/repos/zaproxy/zaproxy/releases \
     | jq -r '[.[] | select(.prerelease==true) | .assets[]? | select(.name | test("^ZAP_WEEKLY_D-.*\\.zip$")) | .browser_download_url][0]')"; \
@@ -86,7 +111,7 @@ RUN set -eux; \
   printf '%s\n' \
     '[Desktop Entry]' \
     'Name=Burp Suite Community' \
-    'Exec=/opt/burpsuite/BurpSuiteCommunity' \
+    'Exec=/usr/local/bin/burpsuite' \
     'Type=Application' \
     'Categories=Development;Security;' \
     'Terminal=false' \
