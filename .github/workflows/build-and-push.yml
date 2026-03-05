@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
   schedule:
     # Weekly rebuild (Mon 03:30 UTC) to track rolling-weekly base updates
-    - cron: "30 3 * * 1"
+    - cron: "30 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -36,6 +36,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+	  file: ./Dockerfile
           push: true
           pull: true
           tags: |
