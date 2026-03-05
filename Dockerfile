@@ -1,4 +1,4 @@
-FROM kasmweb/ubuntu-noble-desktop:1.18.0-rolling-weekly
+FROM kasmweb/ubuntu-noble-desktop:1.18.0-rolling-daily
 
 USER root
 
@@ -16,7 +16,7 @@ RUN set -eux; \
   fi; \
   apt-get update
 
-# Base utilities + security tools + browser dependencies
+# Base utilities + security tools + browser dependencies + flatpak deps + icon tooling
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
     sudo \
@@ -39,6 +39,17 @@ RUN set -eux; \
     p7zip-full \
     default-jre \
     nmap \
+    \
+    # Flatpak + desktop integration (portals)
+    flatpak \
+    xdg-desktop-portal \
+    xdg-desktop-portal-gtk \
+    \
+    # Icon + desktop entry utilities
+    librsvg2-bin \
+    desktop-file-utils \
+    \
+    # Your existing GUI/lib deps
     libnss3 \
     libgtk-3-0t64 \
     libgbm1 \
@@ -64,6 +75,10 @@ RUN set -eux; \
     libxrender1 \
     xdg-utils \
   ; \
+  \
+  # Add Flathub system-wide (so all users in the container can see it)
+  flatpak remote-add --if-not-exists --system flathub https://dl.flathub.org/repo/flathub.flatpakrepo; \
+  \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
 
@@ -104,7 +119,26 @@ RUN set -eux; \
   rm -f /tmp/zap.zip; \
   ln -sf /opt/zap/ZAP_*/zap.sh /usr/local/bin/zaproxy
 
-# Desktop launchers
+# --- Icons for desktop launchers (Nmap + ZAP) ---
+RUN set -eux; \
+  install -d /usr/share/icons/hicolor/256x256/apps; \
+  \
+  # Nmap logo (PNG)
+  curl -fsSL -L "https://commons.wikimedia.org/wiki/Special:FilePath/Logo_nmap.png" \
+    -o /usr/share/icons/hicolor/256x256/apps/nmap.png; \
+  \
+  # OWASP ZAP logo (SVG -> PNG)
+  curl -fsSL -L "https://commons.wikimedia.org/wiki/Special:FilePath/OWASP%20ZAP%20logo.svg" \
+    -o /tmp/owasp-zap.svg; \
+  rsvg-convert -w 256 -h 256 /tmp/owasp-zap.svg \
+    -o /usr/share/icons/hicolor/256x256/apps/zaproxy.png; \
+  rm -f /tmp/owasp-zap.svg; \
+  \
+  # Update caches (best-effort)
+  gtk-update-icon-cache -f /usr/share/icons/hicolor || true; \
+  update-desktop-database /usr/share/applications || true
+
+# Desktop launchers (with Icon= set)
 RUN printf '%s\n' \
   '[Desktop Entry]' \
   'Name=Burp Suite Community' \
@@ -117,6 +151,7 @@ printf '%s\n' \
   '[Desktop Entry]' \
   'Name=OWASP ZAP' \
   'Exec=/usr/local/bin/zaproxy' \
+  'Icon=zaproxy' \
   'Type=Application' \
   'Categories=Development;Security;' \
   'Terminal=false' \
@@ -125,6 +160,7 @@ printf '%s\n' \
   '[Desktop Entry]' \
   'Name=Nmap Scanner' \
   'Exec=x-terminal-emulator -e nmap --help' \
+  'Icon=nmap' \
   'Type=Application' \
   'Categories=Security;' \
   'Terminal=false' \
