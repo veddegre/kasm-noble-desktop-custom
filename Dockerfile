@@ -67,22 +67,6 @@ RUN set -eux; \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
 
-# Install Microsoft Edge
-RUN set -eux; \
-  mkdir -p /etc/apt/keyrings; \
-  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-    | gpg --dearmor -o /etc/apt/keyrings/microsoft-edge.gpg; \
-  echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft-edge.gpg] https://packages.microsoft.com/repos/edge stable main" \
-    > /etc/apt/sources.list.d/microsoft-edge.list; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends microsoft-edge-stable; \
-  apt-get clean; \
-  rm -rf /var/lib/apt/lists/*
-
-# Patch Edge launcher for container environment
-RUN sed -i 's|Exec=.*|Exec=/usr/bin/microsoft-edge-stable --no-sandbox --disable-dev-shm-usage %U|g' \
-  /usr/share/applications/microsoft-edge.desktop
-
 # Install Burp Suite Community (latest at build time)
 RUN set -eux; \
   curl -fsSL -L "https://portswigger.net/burp/releases/startdownload?product=community&type=Linux" \

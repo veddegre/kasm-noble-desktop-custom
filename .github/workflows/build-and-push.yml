@@ -38,9 +38,6 @@ jobs:
           context: .
           push: true
           pull: true
-          platforms: linux/amd64
-          provenance: false
-          sbom: false
           tags: |
             ${{ env.IMAGE_NAME }}:rolling
             ${{ env.IMAGE_NAME }}:1.18.0-rolling-daily
