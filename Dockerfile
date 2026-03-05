@@ -155,6 +155,57 @@ printf '%s\n' \
   > /usr/share/applications/zaproxy.desktop && \
 update-desktop-database /usr/share/applications || true
 
+# --- Remove unwanted apps (present in the base image) ---
+RUN set -eux; \
+  \
+  # APT removals (if present)
+  apt-get update; \
+  apt-get purge -y --auto-remove \
+    thunderbird \
+    nextcloud-desktop \
+    telegram-desktop \
+    signal-desktop \
+    zoom \
+    sublime-text \
+  || true; \
+  \
+  # SNAP removals (if present)
+  if command -v snap >/dev/null 2>&1; then \
+    snap remove --purge thunderbird 2>/dev/null || true; \
+    snap remove --purge nextcloud-desktop 2>/dev/null || true; \
+    snap remove --purge telegram-desktop 2>/dev/null || true; \
+    snap remove --purge signal-desktop 2>/dev/null || true; \
+    snap remove --purge zoom-client 2>/dev/null || true; \
+  fi; \
+  \
+  # FLATPAK removals (if present)
+  if command -v flatpak >/dev/null 2>&1; then \
+    flatpak uninstall -y --system --noninteractive \
+      us.zoom.Zoom \
+      org.signal.Signal \
+      org.telegram.desktop \
+      com.sublimetext.three \
+      com.sublimetext.four \
+      com.nextcloud.desktopclient.nextcloud \
+      org.mozilla.Thunderbird \
+    || true; \
+  fi; \
+  \
+  # Remove leftover desktop launchers so they don't show in menus
+  rm -f \
+    /usr/share/applications/*zoom*.desktop \
+    /usr/share/applications/*sublime*.desktop \
+    /usr/share/applications/*signal*.desktop \
+    /usr/share/applications/*telegram*.desktop \
+    /usr/share/applications/*nextcloud*.desktop \
+    /usr/share/applications/*thunderbird*.desktop \
+  || true; \
+  \
+  update-desktop-database /usr/share/applications || true; \
+  \
+  apt-get clean; \
+  rm -rf /var/lib/apt/lists/*
+
 # Passwordless sudo
 RUN echo "kasm-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
