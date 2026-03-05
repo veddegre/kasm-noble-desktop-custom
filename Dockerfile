@@ -120,13 +120,9 @@ RUN set -eux; \
   rm -f /tmp/zap.zip; \
   ln -sf /opt/zap/ZAP_*/zap.sh /usr/local/bin/zaproxy
 
-# --- Icons for desktop launchers (Nmap + ZAP) ---
+# --- Icons for desktop launchers (ZAP only; no Nmap launcher) ---
 RUN set -eux; \
   install -d /usr/share/icons/hicolor/256x256/apps; \
-  \
-  # Nmap logo (PNG)
-  curl -fsSL -L "https://commons.wikimedia.org/wiki/Special:FilePath/Logo_nmap.png" \
-    -o /usr/share/icons/hicolor/256x256/apps/nmap.png; \
   \
   # OWASP ZAP logo (SVG -> PNG)
   curl -fsSL -L "https://commons.wikimedia.org/wiki/Special:FilePath/OWASP%20ZAP%20logo.svg" \
@@ -157,15 +153,6 @@ printf '%s\n' \
   'Categories=Development;Security;' \
   'Terminal=false' \
   > /usr/share/applications/zaproxy.desktop && \
-printf '%s\n' \
-  '[Desktop Entry]' \
-  'Name=Nmap (Terminal)' \
-  'Exec=xfce4-terminal --hold -e "nmap --help"' \
-  'Icon=nmap' \
-  'Type=Application' \
-  'Categories=Security;' \
-  'Terminal=false' \
-  > /usr/share/applications/nmap.desktop && \
 update-desktop-database /usr/share/applications || true
 
 # Passwordless sudo
