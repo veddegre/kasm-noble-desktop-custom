@@ -16,12 +16,13 @@ RUN set -eux; \
   fi; \
   apt-get update
 
-# Base utilities + security tools + browser dependencies + flatpak deps + icon tooling
+# Base utilities + security tools + browser dependencies + flatpak deps + icon tooling + xfce terminal
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
     sudo \
     dnsutils \
     xfce4-whiskermenu-plugin \
+    xfce4-terminal \
     curl \
     wget \
     vim \
@@ -138,7 +139,7 @@ RUN set -eux; \
   gtk-update-icon-cache -f /usr/share/icons/hicolor || true; \
   update-desktop-database /usr/share/applications || true
 
-# Desktop launchers (with Icon= set)
+# Desktop launchers
 RUN printf '%s\n' \
   '[Desktop Entry]' \
   'Name=Burp Suite Community' \
@@ -158,13 +159,14 @@ printf '%s\n' \
   > /usr/share/applications/zaproxy.desktop && \
 printf '%s\n' \
   '[Desktop Entry]' \
-  'Name=Nmap Scanner' \
-  'Exec=x-terminal-emulator -e nmap --help' \
+  'Name=Nmap (Terminal)' \
+  'Exec=xfce4-terminal --hold -e "nmap --help"' \
   'Icon=nmap' \
   'Type=Application' \
   'Categories=Security;' \
   'Terminal=false' \
-  > /usr/share/applications/nmap.desktop
+  > /usr/share/applications/nmap.desktop && \
+update-desktop-database /usr/share/applications || true
 
 # Passwordless sudo
 RUN echo "kasm-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
