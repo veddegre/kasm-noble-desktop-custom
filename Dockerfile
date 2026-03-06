@@ -40,6 +40,7 @@ RUN set -eux; \
     p7zip-full \
     default-jre \
     nmap \
+    htop \
     \
     # Flatpak + desktop integration (portals)
     flatpak \
@@ -168,15 +169,6 @@ RUN set -eux; \
     zoom \
     sublime-text \
   || true; \
-  \
-  # SNAP removals (if present)
-  if command -v snap >/dev/null 2>&1; then \
-    snap remove --purge thunderbird 2>/dev/null || true; \
-    snap remove --purge nextcloud-desktop 2>/dev/null || true; \
-    snap remove --purge telegram-desktop 2>/dev/null || true; \
-    snap remove --purge signal-desktop 2>/dev/null || true; \
-    snap remove --purge zoom-client 2>/dev/null || true; \
-  fi; \
   \
   # FLATPAK removals (if present)
   if command -v flatpak >/dev/null 2>&1; then \
