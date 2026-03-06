@@ -41,17 +41,11 @@ RUN set -eux; \
     default-jre \
     nmap \
     htop \
-    \
-    # Flatpak + desktop integration (portals)
     flatpak \
     xdg-desktop-portal \
     xdg-desktop-portal-gtk \
-    \
-    # Icon + desktop entry utilities
     librsvg2-bin \
     desktop-file-utils \
-    \
-    # Your existing GUI/lib deps
     libnss3 \
     libgtk-3-0t64 \
     libgbm1 \
@@ -77,14 +71,11 @@ RUN set -eux; \
     libxrender1 \
     xdg-utils \
   ; \
-  \
-  # Add Flathub system-wide (so all users in the container can see it)
   flatpak remote-add --if-not-exists --system flathub https://dl.flathub.org/repo/flathub.flatpakrepo; \
-  \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
 
-# Install Burp Suite Community (latest at build time)
+# Install Burp Suite Community
 RUN set -eux; \
   curl -fsSL -L "https://portswigger.net/burp/releases/startdownload?product=community&type=Linux" \
     -o /tmp/burpsuite.sh; \
@@ -121,18 +112,14 @@ RUN set -eux; \
   rm -f /tmp/zap.zip; \
   ln -sf /opt/zap/ZAP_*/zap.sh /usr/local/bin/zaproxy
 
-# --- Icons for desktop launchers (ZAP only; no Nmap launcher) ---
+# Icons for desktop launchers
 RUN set -eux; \
   install -d /usr/share/icons/hicolor/256x256/apps; \
-  \
-  # OWASP ZAP logo (SVG -> PNG)
   curl -fsSL -L "https://commons.wikimedia.org/wiki/Special:FilePath/OWASP%20ZAP%20logo.svg" \
     -o /tmp/owasp-zap.svg; \
   rsvg-convert -w 256 -h 256 /tmp/owasp-zap.svg \
     -o /usr/share/icons/hicolor/256x256/apps/zaproxy.png; \
   rm -f /tmp/owasp-zap.svg; \
-  \
-  # Update caches (best-effort)
   gtk-update-icon-cache -f /usr/share/icons/hicolor || true; \
   update-desktop-database /usr/share/applications || true
 
@@ -156,11 +143,11 @@ printf '%s\n' \
   > /usr/share/applications/zaproxy.desktop && \
 update-desktop-database /usr/share/applications || true
 
-# --- Remove unwanted apps (present in the base image) ---
+# Remove unwanted apps from the base image
 RUN set -eux; \
-  \
-  # APT removals (if present)
   apt-get update; \
+  \
+  # Remove APT-installed packages if present
   apt-get purge -y --auto-remove \
     thunderbird \
     nextcloud-desktop \
@@ -170,7 +157,7 @@ RUN set -eux; \
     sublime-text \
   || true; \
   \
-  # FLATPAK removals (if present)
+  # Remove Flatpak-installed apps if present
   if command -v flatpak >/dev/null 2>&1; then \
     flatpak uninstall -y --system --noninteractive \
       us.zoom.Zoom \
@@ -183,18 +170,86 @@ RUN set -eux; \
     || true; \
   fi; \
   \
-  # Remove leftover desktop launchers so they don't show in menus
+  # Remove base-image app directories if they were installed manually
+  rm -rf \
+    /opt/Signal \
+    /opt/Telegram \
+    /opt/sublime_text \
+    /opt/zoom \
+  || true; \
+  \
+  # Remove desktop launchers from common system locations
   rm -f \
     /usr/share/applications/*zoom*.desktop \
-    /usr/share/applications/*sublime*.desktop \
+    /usr/share/applications/*Zoom*.desktop \
     /usr/share/applications/*signal*.desktop \
+    /usr/share/applications/*Signal*.desktop \
     /usr/share/applications/*telegram*.desktop \
+    /usr/share/applications/*Telegram*.desktop \
+    /usr/share/applications/*sublime*.desktop \
+    /usr/share/applications/*Sublime*.desktop \
     /usr/share/applications/*nextcloud*.desktop \
+    /usr/share/applications/*Nextcloud*.desktop \
     /usr/share/applications/*thunderbird*.desktop \
+    /usr/share/applications/*Thunderbird*.desktop \
+    /usr/local/share/applications/*zoom*.desktop \
+    /usr/local/share/applications/*Zoom*.desktop \
+    /usr/local/share/applications/*signal*.desktop \
+    /usr/local/share/applications/*Signal*.desktop \
+    /usr/local/share/applications/*telegram*.desktop \
+    /usr/local/share/applications/*Telegram*.desktop \
+    /usr/local/share/applications/*sublime*.desktop \
+    /usr/local/share/applications/*Sublime*.desktop \
+    /usr/local/share/applications/*nextcloud*.desktop \
+    /usr/local/share/applications/*Nextcloud*.desktop \
+    /usr/local/share/applications/*thunderbird*.desktop \
+    /usr/local/share/applications/*Thunderbird*.desktop \
+  || true; \
+  \
+  # Remove possible wrappers/symlinks
+  rm -f \
+    /usr/local/bin/zoom \
+    /usr/local/bin/signal \
+    /usr/local/bin/telegram \
+    /usr/local/bin/subl \
+    /usr/local/bin/sublime_text \
+    /usr/bin/zoom \
+    /usr/bin/signal \
+    /usr/bin/telegram \
+    /usr/bin/subl \
+    /usr/bin/sublime_text \
+  || true; \
+  \
+  # Remove cached menu entries for skeleton/home directories if present
+  rm -f \
+    /etc/skel/Desktop/*zoom*.desktop \
+    /etc/skel/Desktop/*Zoom*.desktop \
+    /etc/skel/Desktop/*signal*.desktop \
+    /etc/skel/Desktop/*Signal*.desktop \
+    /etc/skel/Desktop/*telegram*.desktop \
+    /etc/skel/Desktop/*Telegram*.desktop \
+    /etc/skel/Desktop/*sublime*.desktop \
+    /etc/skel/Desktop/*Sublime*.desktop \
+    /etc/skel/Desktop/*nextcloud*.desktop \
+    /etc/skel/Desktop/*Nextcloud*.desktop \
+    /etc/skel/Desktop/*thunderbird*.desktop \
+    /etc/skel/Desktop/*Thunderbird*.desktop \
+    /home/kasm-user/Desktop/*zoom*.desktop \
+    /home/kasm-user/Desktop/*Zoom*.desktop \
+    /home/kasm-user/Desktop/*signal*.desktop \
+    /home/kasm-user/Desktop/*Signal*.desktop \
+    /home/kasm-user/Desktop/*telegram*.desktop \
+    /home/kasm-user/Desktop/*Telegram*.desktop \
+    /home/kasm-user/Desktop/*sublime*.desktop \
+    /home/kasm-user/Desktop/*Sublime*.desktop \
+    /home/kasm-user/Desktop/*nextcloud*.desktop \
+    /home/kasm-user/Desktop/*Nextcloud*.desktop \
+    /home/kasm-user/Desktop/*thunderbird*.desktop \
+    /home/kasm-user/Desktop/*Thunderbird*.desktop \
   || true; \
   \
   update-desktop-database /usr/share/applications || true; \
-  \
+  update-desktop-database /usr/local/share/applications || true; \
   apt-get clean; \
   rm -rf /var/lib/apt/lists/*
 
