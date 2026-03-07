@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
   schedule:
-    # Weekly rebuild (Mon 03:30 UTC) to track rolling-weekly base updates
+    # daily rebuild (Mon 03:30 UTC) to track rolling-daily base updates
     - cron: "30 3 * * *"
   workflow_dispatch:
 
